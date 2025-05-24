@@ -39,12 +39,21 @@ const server = serve({
 				console.log(req);
 				console.log(req.body);
 				const body = await req.json();
-				const content = body.content;
-				if (!content) return Response.error();
+				const messages = body.messages;
+				if (!messages || messages.length === 0) return Response.error();
+
+				// Transform messages to Claude API format
+				const claudeMessages = messages.map((msg: any) => ({
+					role: msg.role,
+					content: Array.isArray(msg.content)
+						? msg.content[0].text
+						: msg.content,
+				}));
+
 				const response = await anthropic.messages.create({
 					model: "claude-3-7-sonnet-20250219",
 					max_tokens: 1024,
-					messages: [{ role: "user", content }],
+					messages: claudeMessages,
 				});
 				console.log({ response });
 				return Response.json({ response });
