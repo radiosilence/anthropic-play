@@ -38,8 +38,8 @@ const server = serve({
 			async POST(req) {
 				console.log(req);
 				console.log(req.body);
-				const formData = await req.formData();
-				const content = formData.get("content")?.toString();
+				const body = await req.json();
+				const content = body.content;
 				if (!content) return Response.error();
 				const response = await anthropic.messages.create({
 					model: "claude-3-7-sonnet-20250219",
@@ -47,7 +47,7 @@ const server = serve({
 					messages: [{ role: "user", content }],
 				});
 				console.log({ response });
-				return Response.json({ content: response.content });
+				return Response.json({ response });
 			},
 		},
 	},
