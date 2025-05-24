@@ -10,7 +10,7 @@ import {
 // Simple ID generator for browser compatibility
 const generateId = () => Date.now().toString(36) + Math.random().toString(36);
 
-export function APITester() {
+export function Chat() {
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const chatContainerRef = useRef<HTMLDivElement>(null);
 	const [messages, setMessages] = useState<
@@ -74,7 +74,7 @@ export function APITester() {
 				textareaRef.current.value = "";
 			}
 
-			const res = await fetch("/api/vibes", {
+			const res = await fetch("/api/chat", {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
