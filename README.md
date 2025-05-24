@@ -72,6 +72,19 @@ bun start
 4. Your conversation history is automatically saved
 5. Use "Reset Chat" to start a new conversation
 
+## 🤖 About This Project
+
+This project was almost entirely **Vibescoded** with [Claude](https://claude.ai) - Anthropic's AI assistant! 🎉
+
+From the initial concept to the final implementation, Claude helped with:
+- 🏗️ **Architecture decisions** - Choosing the right tech stack and project structure
+- 💻 **Code implementation** - Writing React components, API endpoints, and styling
+- 🎨 **UI/UX design** - Creating the chat interface and user experience
+- 🐛 **Debugging** - Fixing issues and optimizing performance
+- 📝 **Documentation** - Writing this very README!
+
+It's a testament to the power of AI-assisted development - what would normally take days of work was completed in a few hours of collaborative coding between human and AI. The future of programming is here! 🚀
+
 ---
 
-Built with ❤️ using Bun v1.2.14+
+Built with ❤️ using Bun v1.2.14+ and Claude's coding superpowers ⚡
