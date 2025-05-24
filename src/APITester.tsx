@@ -1,7 +1,10 @@
-import { useRef, type FormEvent } from "react";
+import type { Message } from "@anthropic-ai/sdk/resources";
+import { randomUUIDv7 } from "bun";
+import { useRef, useState, type FormEvent } from "react";
 
 export function APITester() {
 	const responseInputRef = useRef<HTMLTextAreaElement>(null);
+	const [messages, setMessages] = useState<Partial<Message>[]>([]);
 
 	const testEndpoint = async (e: FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
@@ -12,10 +15,29 @@ export function APITester() {
 			const endpoint = formData.get("endpoint") as string;
 			const url = new URL(endpoint, location.href);
 			const method = formData.get("method") as string;
-			console.log({ url, method, endpoint, formData });
-			const res = await fetch(url, { method, body: formData });
+			const content = formData.get("content") as string;
+
+			const payload = { content };
+			console.log({ url, method, endpoint, payload });
+
+			setMessages((messages) => [
+				...messages,
+				{
+					id: randomUUIDv7(),
+					role: "user",
+					content: [{ type: "text", text: content }],
+				} as unknown as Message,
+			]);
+			const res = await fetch(url, {
+				method,
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify(payload),
+			});
 
 			const data = await res.json();
+			setMessages((messages) => [...messages, data.response as Message]);
 			responseInputRef.current!.value = JSON.stringify(data, null, 2);
 		} catch (error) {
 			responseInputRef.current!.value = String(error);
@@ -64,6 +86,14 @@ export function APITester() {
 					placeholder="Message..."
 				/>
 			</form>
+			{messages.map((message) => (
+				<div
+					key={message.id}
+					className="w-full bg-[#1a1a1a] border-2 border-[#fbf0df] rounded-xl p-3 text-[#fbf0df] font-mono resize-y focus:border-[#f3d5a3] placeholder-[#fbf0df]/40"
+				>
+					{JSON.stringify(message)}
+				</div>
+			))}
 			<textarea
 				ref={responseInputRef}
 				readOnly
