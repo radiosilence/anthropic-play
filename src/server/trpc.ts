@@ -79,7 +79,7 @@ export const appRouter = t.router({
     };
   }),
 
-  message: t.procedure.input(ChatRequestSchema).mutation(async (opts) => {
+  sendMessages: t.procedure.input(ChatRequestSchema).mutation(async (opts) => {
     console.log("💬 New chat message request received");
     console.log(`📥 Input messages count: ${opts.input.messages.length}`);
 
