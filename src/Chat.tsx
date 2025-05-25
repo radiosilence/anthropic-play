@@ -1,4 +1,6 @@
 import { type FormEvent, useCallback, useEffect, useRef } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { useChat } from "./hooks/useChat";
 
 export function Chat() {
@@ -88,7 +90,88 @@ export function Chat() {
             <div className="font-bold mb-2 text-[#f3d5a3]">
               {message.role === "assistant" ? "Claude" : "You"}
             </div>
-            <div className="whitespace-pre-wrap">{message.content}</div>
+            <div className="prose prose-invert prose-sm max-w-none">
+              <ReactMarkdown 
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  // Style code blocks to match our theme
+                  code: ({ node, inline, className, children, ...props }) => {
+                    return inline ? (
+                      <code 
+                        className="bg-[#2a2a2a] px-1 py-0.5 rounded text-[#f3d5a3]" 
+                        {...props}
+                      >
+                        {children}
+                      </code>
+                    ) : (
+                      <pre className="bg-[#2a2a2a] p-3 rounded-lg overflow-x-auto">
+                        <code className="text-[#fbf0df]" {...props}>
+                          {children}
+                        </code>
+                      </pre>
+                    );
+                  },
+                  // Style links
+                  a: ({ children, href, ...props }) => (
+                    <a 
+                      href={href} 
+                      className="text-[#f3d5a3] hover:text-[#fbf0df] underline"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      {...props}
+                    >
+                      {children}
+                    </a>
+                  ),
+                  // Style headings
+                  h1: ({ children, ...props }) => (
+                    <h1 className="text-[#f3d5a3] text-xl font-bold mb-2" {...props}>{children}</h1>
+                  ),
+                  h2: ({ children, ...props }) => (
+                    <h2 className="text-[#f3d5a3] text-lg font-bold mb-2" {...props}>{children}</h2>
+                  ),
+                  h3: ({ children, ...props }) => (
+                    <h3 className="text-[#f3d5a3] text-base font-bold mb-1" {...props}>{children}</h3>
+                  ),
+                  // Style blockquotes
+                  blockquote: ({ children, ...props }) => (
+                    <blockquote 
+                      className="border-l-4 border-[#f3d5a3] pl-4 italic text-[#fbf0df]/80"
+                      {...props}
+                    >
+                      {children}
+                    </blockquote>
+                  ),
+                  // Style lists
+                  ul: ({ children, ...props }) => (
+                    <ul className="list-disc pl-4 space-y-1" {...props}>{children}</ul>
+                  ),
+                  ol: ({ children, ...props }) => (
+                    <ol className="list-decimal pl-4 space-y-1" {...props}>{children}</ol>
+                  ),
+                  // Style tables
+                  table: ({ children, ...props }) => (
+                    <div className="overflow-x-auto">
+                      <table className="border border-[#fbf0df]/30 border-collapse" {...props}>
+                        {children}
+                      </table>
+                    </div>
+                  ),
+                  th: ({ children, ...props }) => (
+                    <th className="border border-[#fbf0df]/30 px-2 py-1 bg-[#2a2a2a] font-bold" {...props}>
+                      {children}
+                    </th>
+                  ),
+                  td: ({ children, ...props }) => (
+                    <td className="border border-[#fbf0df]/30 px-2 py-1" {...props}>
+                      {children}
+                    </td>
+                  ),
+                }}
+              >
+                {message.content}
+              </ReactMarkdown>
+            </div>
           </div>
         ))}
       </div>
