@@ -140,7 +140,7 @@ export function Chat() {
                     // Style headings
                     h1: ({ children, ...props }) => (
                       <h1
-                        className="text-[#f3d5a3] text-xl font-bold mb-2"
+                        className="text-[#f3d5a3] text-xl font-bold mt-6 mb-3"
                         {...props}
                       >
                         {children}
@@ -148,7 +148,7 @@ export function Chat() {
                     ),
                     h2: ({ children, ...props }) => (
                       <h2
-                        className="text-[#f3d5a3] text-lg font-bold mb-2"
+                        className="text-[#f3d5a3] text-lg font-bold mt-5 mb-2"
                         {...props}
                       >
                         {children}
@@ -156,7 +156,7 @@ export function Chat() {
                     ),
                     h3: ({ children, ...props }) => (
                       <h3
-                        className="text-[#f3d5a3] text-base font-bold mb-1"
+                        className="text-[#f3d5a3] text-base font-bold mt-4 mb-2"
                         {...props}
                       >
                         {children}
@@ -173,12 +173,18 @@ export function Chat() {
                     ),
                     // Style lists
                     ul: ({ children, ...props }) => (
-                      <ul className="list-disc pl-4 space-y-1" {...props}>
+                      <ul
+                        className="list-disc list-outside pl-6 space-y-1 my-2"
+                        {...props}
+                      >
                         {children}
                       </ul>
                     ),
                     ol: ({ children, ...props }) => (
-                      <ol className="list-decimal pl-4 space-y-1" {...props}>
+                      <ol
+                        className="list-decimal list-outside pl-6 space-y-1 my-2"
+                        {...props}
+                      >
                         {children}
                       </ol>
                     ),

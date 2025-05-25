@@ -2,6 +2,7 @@ import { Chat } from "./Chat";
 import "./index.css";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
+import { Dbg } from "./Dbg";
 import { trpc, trpcClient } from "./utils/trpc";
 
 export function App() {
