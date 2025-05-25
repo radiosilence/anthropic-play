@@ -11,9 +11,6 @@ const TypingDots = () => (
       <div className="w-2 h-2 bg-[#f3d5a3] rounded-full animate-bounce [animation-delay:-0.15s]" />
       <div className="w-2 h-2 bg-[#f3d5a3] rounded-full animate-bounce" />
     </div>
-    <span className="text-[#f3d5a3]/70 text-sm ml-2">
-      Claude is thinking...
-    </span>
   </div>
 );
 
@@ -26,6 +23,7 @@ export function Chat() {
     sendMessage,
     stopStreaming,
     resetChat,
+    error,
   } = useChat();
 
   // Scroll to bottom helper
@@ -86,6 +84,12 @@ export function Chat() {
       </div>
 
       <div className="flex-1 flex flex-col gap-4 pr-2">
+        {error && (
+          <div className="w-full bg-red-900/20 border-2 border-red-600 rounded-xl p-3 text-red-400 font-mono">
+            <div className="font-bold mb-2">Error</div>
+            <div className="text-sm">{error}</div>
+          </div>
+        )}
         {messages.map((message) => (
           <div
             key={message.id}
