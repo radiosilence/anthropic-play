@@ -140,11 +140,14 @@ export function useChat(): UseChatReturn {
                   );
                 } else if (data.type === "complete") {
                   // Update with final content
+                  const textBlocks =
+                    data.response?.content?.filter(
+                      (block) => block.type === "text",
+                    ) || [];
                   const finalContent =
-                    (data.response?.content?.[0]?.type === "text" &&
-                      data.response.content[0].text) ||
-                    data.response?.content ||
-                    accumulatedContent;
+                    textBlocks.length > 0
+                      ? textBlocks.map((block) => (block as any).text).join("")
+                      : accumulatedContent;
                   setMessages((prev) =>
                     prev.map((msg) =>
                       msg.id === assistantMessageId

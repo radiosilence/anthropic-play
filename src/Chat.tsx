@@ -95,7 +95,8 @@ export function Chat() {
                 remarkPlugins={[remarkGfm]}
                 components={{
                   // Style code blocks to match our theme
-                  code: ({ node, inline, className, children, ...props }) => {
+                  code: ({ node, className, children, ...props }) => {
+                    const inline = (props as any).inline;
                     return inline ? (
                       <code
                         className="bg-[#2a2a2a] px-1 py-0.5 rounded text-[#f3d5a3]"
