@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  StreamingResponseSchema,
   type ChatMessage,
+  StreamingResponseSchema,
 } from "../types/chat.schema";
 import { trpc } from "../utils/trpc";
 

@@ -91,14 +91,14 @@ export function Chat() {
               {message.role === "assistant" ? "Claude" : "You"}
             </div>
             <div className="prose prose-invert prose-sm max-w-none">
-              <ReactMarkdown 
+              <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
                   // Style code blocks to match our theme
                   code: ({ node, inline, className, children, ...props }) => {
                     return inline ? (
-                      <code 
-                        className="bg-[#2a2a2a] px-1 py-0.5 rounded text-[#f3d5a3]" 
+                      <code
+                        className="bg-[#2a2a2a] px-1 py-0.5 rounded text-[#f3d5a3]"
                         {...props}
                       >
                         {children}
@@ -113,8 +113,8 @@ export function Chat() {
                   },
                   // Style links
                   a: ({ children, href, ...props }) => (
-                    <a 
-                      href={href} 
+                    <a
+                      href={href}
                       className="text-[#f3d5a3] hover:text-[#fbf0df] underline"
                       target="_blank"
                       rel="noopener noreferrer"
@@ -125,17 +125,32 @@ export function Chat() {
                   ),
                   // Style headings
                   h1: ({ children, ...props }) => (
-                    <h1 className="text-[#f3d5a3] text-xl font-bold mb-2" {...props}>{children}</h1>
+                    <h1
+                      className="text-[#f3d5a3] text-xl font-bold mb-2"
+                      {...props}
+                    >
+                      {children}
+                    </h1>
                   ),
                   h2: ({ children, ...props }) => (
-                    <h2 className="text-[#f3d5a3] text-lg font-bold mb-2" {...props}>{children}</h2>
+                    <h2
+                      className="text-[#f3d5a3] text-lg font-bold mb-2"
+                      {...props}
+                    >
+                      {children}
+                    </h2>
                   ),
                   h3: ({ children, ...props }) => (
-                    <h3 className="text-[#f3d5a3] text-base font-bold mb-1" {...props}>{children}</h3>
+                    <h3
+                      className="text-[#f3d5a3] text-base font-bold mb-1"
+                      {...props}
+                    >
+                      {children}
+                    </h3>
                   ),
                   // Style blockquotes
                   blockquote: ({ children, ...props }) => (
-                    <blockquote 
+                    <blockquote
                       className="border-l-4 border-[#f3d5a3] pl-4 italic text-[#fbf0df]/80"
                       {...props}
                     >
@@ -144,26 +159,39 @@ export function Chat() {
                   ),
                   // Style lists
                   ul: ({ children, ...props }) => (
-                    <ul className="list-disc pl-4 space-y-1" {...props}>{children}</ul>
+                    <ul className="list-disc pl-4 space-y-1" {...props}>
+                      {children}
+                    </ul>
                   ),
                   ol: ({ children, ...props }) => (
-                    <ol className="list-decimal pl-4 space-y-1" {...props}>{children}</ol>
+                    <ol className="list-decimal pl-4 space-y-1" {...props}>
+                      {children}
+                    </ol>
                   ),
                   // Style tables
                   table: ({ children, ...props }) => (
                     <div className="overflow-x-auto">
-                      <table className="border border-[#fbf0df]/30 border-collapse" {...props}>
+                      <table
+                        className="border border-[#fbf0df]/30 border-collapse"
+                        {...props}
+                      >
                         {children}
                       </table>
                     </div>
                   ),
                   th: ({ children, ...props }) => (
-                    <th className="border border-[#fbf0df]/30 px-2 py-1 bg-[#2a2a2a] font-bold" {...props}>
+                    <th
+                      className="border border-[#fbf0df]/30 px-2 py-1 bg-[#2a2a2a] font-bold"
+                      {...props}
+                    >
                       {children}
                     </th>
                   ),
                   td: ({ children, ...props }) => (
-                    <td className="border border-[#fbf0df]/30 px-2 py-1" {...props}>
+                    <td
+                      className="border border-[#fbf0df]/30 px-2 py-1"
+                      {...props}
+                    >
                       {children}
                     </td>
                   ),
