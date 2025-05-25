@@ -17,6 +17,7 @@ export function Chat() {
 		Partial<Message & { role?: "assistant" | "user" }>[]
 	>([]);
 	const [isLoading, setIsLoading] = useState(false);
+	const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
 
 	// Load messages from localStorage on mount
 	useEffect(() => {
@@ -95,6 +96,8 @@ export function Chat() {
 				role: "assistant",
 				content: "",
 			} as unknown as Message]);
+			setStreamingMessageId(assistantMessageId);
+			setIsLoading(false);
 
 			if (reader) {
 				try {
@@ -129,6 +132,7 @@ export function Chat() {
 												? parsed.response
 												: msg
 										));
+										setStreamingMessageId(null);
 									} else if (parsed.type === 'error') {
 										throw new Error(parsed.error);
 									}
@@ -140,6 +144,7 @@ export function Chat() {
 					}
 				} finally {
 					reader.releaseLock();
+					setStreamingMessageId(null);
 				}
 			}
 			scrollToBottom();
@@ -155,6 +160,7 @@ export function Chat() {
 			]);
 		} finally {
 			setIsLoading(false);
+			setStreamingMessageId(null);
 		}
 	};
 
@@ -196,7 +202,11 @@ export function Chat() {
 				{messages.map((message) => (
 					<div
 						key={message.id}
-						className="w-full bg-[#1a1a1a] border-2 border-[#fbf0df] rounded-xl p-3 text-[#fbf0df] font-mono focus:border-[#f3d5a3]"
+						className={`w-full bg-[#1a1a1a] border-2 rounded-xl p-3 text-[#fbf0df] font-mono ${
+							message.id === streamingMessageId 
+								? 'animate-pulse border-[#f3d5a3]' 
+								: 'border-[#fbf0df] focus:border-[#f3d5a3]'
+						}`}
 					>
 						<div className="font-bold mb-2 text-[#f3d5a3]">
 							{message.role === "assistant" ? "Claude" : "You"}
@@ -208,12 +218,6 @@ export function Chat() {
 						</div>
 					</div>
 				))}
-				{isLoading && (
-					<div className="w-full bg-[#1a1a1a] border-2 border-[#fbf0df] rounded-xl p-3 text-[#fbf0df] font-mono focus:border-[#f3d5a3]">
-						<div className="font-bold mb-2 text-[#f3d5a3]">Claude</div>
-						<div className="text-[#fbf0df]/60 italic">Thinking...</div>
-					</div>
-				)}
 			</div>
 
 			<form
