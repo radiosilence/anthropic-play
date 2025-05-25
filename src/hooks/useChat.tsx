@@ -1,5 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { ChatMessage } from "../types/chat";
+import { useState, useEffect, useCallback, useRef } from "react";
+import {
+  StreamingResponseSchema,
+  type ChatMessage,
+} from "../types/chat.schema";
 import { trpc } from "../utils/trpc";
 
 interface UseChatReturn {
@@ -122,44 +125,35 @@ export function useChat(): UseChatReturn {
               const lines = chunk.split("\n");
 
               for (const line of lines) {
-                if (line.startsWith("data: ")) {
-                  const data = line.slice(6);
-                  if (data === "[DONE]") continue;
+                const { data, error } = StreamingResponseSchema.safeParse(line);
+                if (!data || error) continue;
 
-                  try {
-                    const parsed = JSON.parse(data);
-
-                    if (parsed.type === "delta") {
-                      accumulatedContent += parsed.content;
-                      // Update the assistant message
-                      setMessages((prev) =>
-                        prev.map((msg) =>
-                          msg.id === assistantMessageId
-                            ? { ...msg, content: accumulatedContent }
-                            : msg,
-                        ),
-                      );
-                    } else if (parsed.type === "complete") {
-                      // Update with final content
-                      const finalContent =
-                        parsed.response.content?.[0]?.text ||
-                        parsed.response.content ||
-                        accumulatedContent;
-                      setMessages((prev) =>
-                        prev.map((msg) =>
-                          msg.id === assistantMessageId
-                            ? { ...msg, content: finalContent }
-                            : msg,
-                        ),
-                      );
-                    } else if (parsed.type === "error") {
-                      throw new Error(parsed.error);
-                    }
-                  } catch (e) {
-                    if (e instanceof Error && e.name !== "AbortError") {
-                      console.error("Error parsing SSE data:", e);
-                    }
-                  }
+                if (data.type === "delta") {
+                  accumulatedContent += data.content;
+                  // Update the assistant message
+                  setMessages((prev) =>
+                    prev.map((msg) =>
+                      msg.id === assistantMessageId
+                        ? { ...msg, content: accumulatedContent }
+                        : msg,
+                    ),
+                  );
+                } else if (data.type === "complete") {
+                  // Update with final content
+                  const finalContent =
+                    (data.response?.content?.[0]?.type === "text" &&
+                      data.response.content[0].text) ||
+                    data.response?.content ||
+                    accumulatedContent;
+                  setMessages((prev) =>
+                    prev.map((msg) =>
+                      msg.id === assistantMessageId
+                        ? { ...msg, content: finalContent }
+                        : msg,
+                    ),
+                  );
+                } else if (data.type === "error") {
+                  throw new Error(data.error);
                 }
               }
             }

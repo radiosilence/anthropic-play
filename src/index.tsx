@@ -4,6 +4,7 @@ import { serve } from "bun";
 import { z } from "zod";
 import index from "./index.html";
 import { appRouter, createContext } from "./server/router";
+import { StreamingResponseSchema } from "./types/chat.schema";
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_KEY,
@@ -61,8 +62,18 @@ const server = serve({
             async start(controller) {
               const encoder = new TextEncoder();
 
+              const enqueue = (
+                data: z.infer<typeof StreamingResponseSchema>,
+              ) => {
+                controller.enqueue(
+                  encoder.encode(
+                    `${JSON.stringify(StreamingResponseSchema.parse(data))}\n`,
+                  ),
+                );
+              };
+
               try {
-                const stream = await anthropic.messages.stream({
+                const stream = anthropic.messages.stream({
                   model: "claude-3-7-sonnet-20250219",
                   max_tokens: 1024,
                   messages,
@@ -77,11 +88,10 @@ const server = serve({
                   ) {
                     accumulatedContent += chunk.delta.text;
                     // Send the delta as an SSE event
-                    const data = JSON.stringify({
+                    enqueue({
                       type: "delta",
                       content: chunk.delta.text,
                     });
-                    controller.enqueue(encoder.encode(`data: ${data}\n\n`));
                   }
                 }
 
@@ -89,18 +99,15 @@ const server = serve({
                 const finalMessage = await stream.finalMessage();
 
                 // Send the complete message as final event
-                const finalData = JSON.stringify({
+                enqueue({
                   type: "complete",
                   response: finalMessage,
                 });
-                controller.enqueue(encoder.encode(`data: ${finalData}\n\n`));
-                controller.enqueue(encoder.encode("data: [DONE]\n\n"));
               } catch (error: any) {
-                const errorData = JSON.stringify({
+                enqueue({
                   type: "error",
                   error: error.message,
                 });
-                controller.enqueue(encoder.encode(`data: ${errorData}\n\n`));
               } finally {
                 controller.close();
               }
