@@ -13,6 +13,7 @@ A beautiful, real-time chat interface built with **Bun**, **React**, and **Tailw
 - 🗑️ **Reset Chat**: Clear conversation history with confirmation
 - 🤔 **Loading States**: Visual feedback when Claude is thinking
 - 📱 **Responsive Design**: Works great on all screen sizes
+- 🌊 **Streaming Responses**: See Claude's responses appear in real-time as they're generated
 
 ## 🚀 Getting Started
 
@@ -63,7 +64,7 @@ bun start
 ## 🔧 Project Structure
 
 - `src/index.tsx` - Bun server with API routes
-- `src/APITester.tsx` - Main chat component
+- `src/Chat.tsx` - Main chat component
 - `src/App.tsx` - React app wrapper
 - `src/index.css` - Tailwind styles and animations
 
