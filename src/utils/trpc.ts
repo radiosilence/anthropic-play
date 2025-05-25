@@ -1,6 +1,6 @@
 import { httpBatchLink, httpSubscriptionLink, splitLink } from "@trpc/client";
 import { createTRPCReact } from "@trpc/react-query";
-import type { AppRouter } from "../server/router";
+import type { AppRouter } from "../server/trpc";
 
 export const trpc = createTRPCReact<AppRouter>();
 
