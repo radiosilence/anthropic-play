@@ -20,15 +20,8 @@ const server = serve({
 				const messages = body.messages;
 				if (!messages || messages.length === 0) return Response.error();
 
-				// Transform messages to Claude API format
-				const claudeMessages = messages.map((msg: any) => ({
-					role: msg.role,
-					content: Array.isArray(msg.content)
-						? msg.content[0].text
-						: msg.content,
-				}));
-
-				console.log({ claudeMessages });
+				// Messages are already in the correct format
+				const claudeMessages = messages;
 
 				// Set up SSE headers
 				const headers = new Headers({
