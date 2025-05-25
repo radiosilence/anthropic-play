@@ -1,4 +1,4 @@
-# 🤖 Claude Chat App
+# 🤖 Vibescoded Claude Chat App
 
 A beautiful, real-time chat interface built with **Bun**, **React**, and **Tailwind CSS** that lets you have conversations with Claude (Anthropic's AI assistant).
 
@@ -24,6 +24,7 @@ A beautiful, real-time chat interface built with **Bun**, **React**, and **Tailw
 ### Installation
 
 1. **Clone and install dependencies:**
+
    ```bash
    git clone <your-repo>
    cd anthropic-play
@@ -31,11 +32,13 @@ A beautiful, real-time chat interface built with **Bun**, **React**, and **Tailw
    ```
 
 2. **Set up your Anthropic API key:**
+
    ```bash
    export ANTHROPIC_KEY=your_api_key_here
    ```
 
 3. **Start the development server:**
+
    ```bash
    bun dev
    ```
@@ -77,13 +80,14 @@ bun start
 This project was almost entirely **Vibescoded** with [Claude](https://claude.ai) - Anthropic's AI assistant! 🎉
 
 From the initial concept to the final implementation, Claude helped with:
+
 - 🏗️ **Architecture decisions** - Choosing the right tech stack and project structure
 - 💻 **Code implementation** - Writing React components, API endpoints, and styling
 - 🎨 **UI/UX design** - Creating the chat interface and user experience
 - 🐛 **Debugging** - Fixing issues and optimizing performance
 - 📝 **Documentation** - Writing this very README!
 
-It's a testament to the power of AI-assisted development - what would normally take days of work was completed in about 20 minutes of collaborative coding between human and AI. The future of programming is here! 🚀
+It's a testament to the power of AI-assisted development - what would normally take 30 mins was completed in about 20 minutes of collaborative coding between human and AI. The future of programming is here! 🚀
 
 ---
 
