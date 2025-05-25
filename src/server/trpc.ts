@@ -120,25 +120,6 @@ export const appRouter = t.router({
     };
   }),
 
-  debugSend: t.procedure.mutation(async () => {
-    const now = new Date().toISOString();
-    log(now, "DEBUG send");
-    ee.emit("dbg", `DEBUG MESSAGE @ ${now}`);
-  }),
-
-  onDebug: t.procedure.subscription(async function* (opts) {
-    log("DEBUG 🔔 New subscription to debug created");
-    const iterable = ee.toIterable("dbg", {
-      signal: opts.signal,
-    });
-    log("DEBUG 👂 Listening for chunk events");
-    for await (const dbg of iterable) {
-      log(`DEBUG 📺 Yielding chunk to subscriber: ${dbg}`);
-      yield dbg;
-    }
-    log("DEBUG 👋 Subscription ended");
-  }),
-
   sendMessages: t.procedure.input(ChatRequestSchema).mutation(async (opts) => {
     log("💬 New chat message request received");
     log(`📥 Input messages count: ${opts.input.messages.length}`);
