@@ -23,3 +23,8 @@ export const ChatRequestSchema = z.object({
     }),
   ),
 });
+
+// Export TypeScript types
+export type ChatMessage = z.infer<typeof ChatMessageSchema>;
+export type StreamingResponse = z.infer<typeof StreamingResponseSchema>;
+export type ChatRequest = z.infer<typeof ChatRequestSchema>;

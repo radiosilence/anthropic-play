@@ -9,8 +9,9 @@
     "dev": "bun --hot src/index.tsx",
     "start": "NODE_ENV=production bun src/index.tsx",
     "build": "bun run build.ts",
-    "biome:fix": "npx @biomejs/biome check . --fix",
+    "biome:fix": "npx @biomejs/biome check . --write",
     "biome:lint": "npx @biomejs/biome check .",
+    "typecheck": "tsc --noEmit",
     "prepare": "husky"
   },
   "dependencies": {
@@ -37,6 +38,6 @@
     "lint-staged": "^16.0.0"
   },
   "lint-staged": {
-    "*.{js,jsx,ts,tsx,json,css,md}": ["npx @biomejs/biome check --write"]
+    "*.{js,jsx,ts,tsx,json,css,md}": ["bun run biome:fix"]
   }
 }
