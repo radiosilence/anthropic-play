@@ -1,6 +1,6 @@
-import { initTRPC } from '@trpc/server';
-import { z } from 'zod';
-import type { FetchCreateContextFnOptions } from '@trpc/server/adapters/fetch';
+import { initTRPC } from "@trpc/server";
+import type { FetchCreateContextFnOptions } from "@trpc/server/adapters/fetch";
+import { z } from "zod";
 
 // Context type
 export function createContext(opts: FetchCreateContextFnOptions) {
@@ -17,7 +17,7 @@ const t = initTRPC.context<Context>().create();
 // Zod schemas
 export const ChatMessageSchema = z.object({
   id: z.string(),
-  role: z.enum(['user', 'assistant']),
+  role: z.enum(["user", "assistant"]),
   content: z.string(),
   timestamp: z.number().optional(),
 });
@@ -30,31 +30,31 @@ export const SavedChatSchema = z.object({
 // Router
 export const appRouter = t.router({
   // Health check endpoint
-  health: t.procedure
-    .query(() => ({
-      status: 'ok',
-      timestamp: new Date().toISOString(),
-      version: '1.0.0',
-    })),
+  health: t.procedure.query(() => ({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    version: "1.0.0",
+  })),
 
   // Get saved chats (example of how we might extend this)
-  getSavedChats: t.procedure
-    .query(async () => {
-      // This could be extended to fetch from a database
-      return {
-        chats: [],
-      };
-    }),
+  getSavedChats: t.procedure.query(async () => {
+    // This could be extended to fetch from a database
+    return {
+      chats: [],
+    };
+  }),
 
   // Save chat session (example)
   saveChat: t.procedure
-    .input(z.object({
-      sessionId: z.string(),
-      messages: z.array(ChatMessageSchema),
-    }))
+    .input(
+      z.object({
+        sessionId: z.string(),
+        messages: z.array(ChatMessageSchema),
+      }),
+    )
     .mutation(async ({ input }) => {
       // This could be extended to save to a database
-      console.log('Saving chat session:', input.sessionId);
+      console.log("Saving chat session:", input.sessionId);
       return {
         success: true,
         sessionId: input.sessionId,
@@ -62,14 +62,13 @@ export const appRouter = t.router({
     }),
 
   // Clear all chats
-  clearChats: t.procedure
-    .mutation(async () => {
-      // This could clear from database
-      return {
-        success: true,
-        clearedAt: new Date().toISOString(),
-      };
-    }),
+  clearChats: t.procedure.mutation(async () => {
+    // This could clear from database
+    return {
+      success: true,
+      clearedAt: new Date().toISOString(),
+    };
+  }),
 });
 
 // Export type router type signature
