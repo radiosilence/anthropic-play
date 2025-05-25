@@ -121,6 +121,7 @@ export function Chat() {
 												? { ...msg, content: accumulatedContent }
 												: msg
 										));
+										scrollToBottom();
 									} else if (parsed.type === 'complete') {
 										// Replace with the final message from Claude
 										setMessages(prev => prev.map(msg => 
