@@ -1,9 +1,10 @@
+import { ENV } from "@/env";
+import { StreamingResponseSchema } from "@/types/chat.schema";
 import { Anthropic } from "@anthropic-ai/sdk";
 import { z } from "zod";
-import { StreamingResponseSchema } from "../types/chat.schema";
 
 const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_KEY,
+  apiKey: ENV.ANTHROPIC_KEY,
 });
 
 // Validation schema for chat requests
@@ -17,7 +18,9 @@ export const ChatRequestSchema = z.object({
 });
 
 // Message sanitization function
-function sanitizeMessages(messages: { role: string; content: string }[]) {
+export function sanitizeMessages(
+  messages: { role: string; content: string }[],
+) {
   return messages
     .filter((msg) => {
       // Remove messages with empty or whitespace-only content
@@ -36,7 +39,7 @@ function sanitizeMessages(messages: { role: string; content: string }[]) {
 }
 
 // Additional validation for conversation flow
-function validateConversation(
+export function validateConversation(
   messages: { role: "user" | "assistant"; content: string }[],
 ) {
   if (messages.length === 0) {

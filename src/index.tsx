@@ -1,11 +1,12 @@
+import { ENV } from "@/env";
+import index from "@/index.html";
+import { handleChatRequest } from "@/server/chat";
+import { appRouter, createContext } from "@/server/trpc";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { serve } from "bun";
-import index from "./index.html";
-import { handleChatRequest } from "./server/chat";
-import { appRouter, createContext } from "./server/router";
 
 const server = serve({
-  port: 3000,
+  port: ENV.PORT,
   routes: {
     // tRPC endpoint
     "/api/trpc/*": async (req) => {
