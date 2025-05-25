@@ -10,7 +10,7 @@ export const TextBlockSchema = z.object({
         z.object({
           cited_text: z.string(),
           document_index: z.number(),
-          document_title: z.string().nullable(),
+          document_title: z.string().nullable().optional(),
           end_char_index: z.number(),
           start_char_index: z.number(),
           type: z.literal("char_location"),
@@ -18,7 +18,7 @@ export const TextBlockSchema = z.object({
         z.object({
           cited_text: z.string(),
           document_index: z.number(),
-          document_title: z.string().nullable(),
+          document_title: z.string().nullable().optional(),
           end_page_number: z.number(),
           start_page_number: z.number(),
           type: z.literal("page_location"),
@@ -26,7 +26,7 @@ export const TextBlockSchema = z.object({
         z.object({
           cited_text: z.string(),
           document_index: z.number(),
-          document_title: z.string().nullable(),
+          document_title: z.string().nullable().optional(),
           end_block_index: z.number(),
           start_block_index: z.number(),
           type: z.literal("content_block_location"),
@@ -34,13 +34,14 @@ export const TextBlockSchema = z.object({
         z.object({
           cited_text: z.string(),
           encrypted_index: z.string(),
-          title: z.string().nullable(),
+          title: z.string().nullable().optional(),
           type: z.literal("web_search_result_location"),
           url: z.string(),
         }),
       ]),
     )
-    .nullable(),
+    .nullable()
+    .optional(),
 });
 
 export const ToolUseBlockSchema = z.object({
@@ -72,7 +73,7 @@ export const WebSearchToolResultBlockSchema = z.object({
     z.array(
       z.object({
         encrypted_content: z.string(),
-        page_age: z.string().nullable(),
+        page_age: z.string().nullable().optional(),
         title: z.string(),
         type: z.literal("web_search_result"),
         url: z.string(),
@@ -140,12 +141,12 @@ export const ServerToolUsageSchema = z.object({
 });
 
 export const UsageSchema = z.object({
-  cache_creation_input_tokens: z.number().nullable(),
-  cache_read_input_tokens: z.number().nullable(),
+  cache_creation_input_tokens: z.number().nullable().optional(),
+  cache_read_input_tokens: z.number().nullable().optional(),
   input_tokens: z.number(),
   output_tokens: z.number(),
-  server_tool_use: ServerToolUsageSchema.nullable(),
-  service_tier: z.enum(["standard", "priority", "batch"]).nullable(),
+  server_tool_use: ServerToolUsageSchema.nullable().optional(),
+  service_tier: z.enum(["standard", "priority", "batch"]).nullable().optional(),
 });
 
 export const MessageSchema = z.object({
@@ -153,8 +154,8 @@ export const MessageSchema = z.object({
   content: z.array(ContentBlockSchema),
   model: ModelSchema,
   role: z.literal("assistant"),
-  stop_reason: StopReasonSchema.nullable(),
-  stop_sequence: z.string().nullable(),
+  stop_reason: StopReasonSchema.nullable().optional(),
+  stop_sequence: z.string().nullable().optional(),
   type: z.literal("message"),
   usage: UsageSchema,
 });
