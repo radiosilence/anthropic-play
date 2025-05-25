@@ -3,7 +3,14 @@ import { useChat } from "./hooks/useChat";
 
 export function Chat() {
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
-	const { messages, isStreaming, streamingMessageId, sendMessage, stopStreaming, resetChat } = useChat();
+	const {
+		messages,
+		isStreaming,
+		streamingMessageId,
+		sendMessage,
+		stopStreaming,
+		resetChat,
+	} = useChat();
 
 	// Scroll to bottom helper
 	const scrollToBottom = useCallback(() => {
@@ -18,14 +25,14 @@ export function Chat() {
 	}, [scrollToBottom]);
 
 	// Scroll when messages change or streaming
-	useEffect(() => {
+	  useEffect(() => {
 		scrollToBottom();
 	}, [messages, streamingMessageId, scrollToBottom]);
 
 	const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
 		const content = textareaRef.current?.value || "";
-		
+
 		if (content.trim()) {
 			await sendMessage(content);
 			if (textareaRef.current) {
@@ -45,7 +52,11 @@ export function Chat() {
 	};
 
 	const handleResetChat = () => {
-		if (confirm("Are you sure you want to clear all messages? This cannot be undone.")) {
+		if (
+			confirm(
+				"Are you sure you want to clear all messages? This cannot be undone.",
+			)
+		) {
 			resetChat();
 		}
 	};
@@ -68,17 +79,15 @@ export function Chat() {
 					<div
 						key={message.id}
 						className={`w-full bg-[#1a1a1a] border-2 rounded-xl p-3 text-[#fbf0df] font-mono transition-colors ${
-							message.id === streamingMessageId 
-								? 'animate-pulse border-[#f3d5a3]' 
-								: 'border-[#fbf0df]'
+							message.id === streamingMessageId
+								? "animate-pulse border-[#f3d5a3]"
+								: "border-[#fbf0df]"
 						}`}
 					>
 						<div className="font-bold mb-2 text-[#f3d5a3]">
 							{message.role === "assistant" ? "Claude" : "You"}
 						</div>
-						<div className="whitespace-pre-wrap">
-							{message.content}
-						</div>
+						<div className="whitespace-pre-wrap">{message.content}</div>
 					</div>
 				))}
 			</div>
@@ -93,7 +102,11 @@ export function Chat() {
 					onKeyDown={handleKeyDown}
 					disabled={isStreaming}
 					className="flex-1 bg-transparent border-0 text-[#fbf0df] font-mono text-base py-1.5 px-2 outline-none focus:text-white placeholder-[#fbf0df]/40 disabled:opacity-50"
-					placeholder={isStreaming ? "Claude is responding..." : "Message... (Cmd+Enter to send)"}
+					placeholder={
+						isStreaming
+							? "Claude is responding..."
+							: "Message... (Cmd+Enter to send)"
+					}
 				/>
 				{isStreaming ? (
 					<button
