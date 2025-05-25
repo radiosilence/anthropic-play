@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { ChatMessage } from "../types/chat";
+import { trpc } from "../utils/trpc";
 
 interface UseChatReturn {
   messages: ChatMessage[];
@@ -8,6 +9,8 @@ interface UseChatReturn {
   sendMessage: (content: string) => Promise<void>;
   stopStreaming: () => void;
   resetChat: () => void;
+  saveCurrentChat: () => Promise<void>;
+  isHealthy: boolean;
 }
 
 // Simple ID generator
@@ -18,6 +21,12 @@ export function useChat(): UseChatReturn {
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // tRPC queries and mutations
+  const healthQuery = trpc.health.useQuery(undefined, {
+    refetchInterval: 30000, // Check health every 30 seconds
+  });
+  const saveChat = trpc.saveChat.useMutation();
 
   // Load messages from localStorage on mount
   useEffect(() => {
@@ -137,7 +146,7 @@ export function useChat(): UseChatReturn {
                     throw new Error(parsed.error);
                   }
                 } catch (e) {
-                  if (e.name !== 'AbortError') {
+                  if (e instanceof Error && e.name !== 'AbortError') {
                     console.error('Error parsing SSE data:', e);
                   }
                 }
@@ -145,7 +154,7 @@ export function useChat(): UseChatReturn {
             }
           }
         } catch (error) {
-          if (error.name === 'AbortError') {
+          if (error instanceof Error && error.name === 'AbortError') {
             // User cancelled - remove the empty assistant message
             setMessages(prev => prev.filter(msg => msg.id !== assistantMessageId));
           } else {
@@ -156,7 +165,7 @@ export function useChat(): UseChatReturn {
         }
       }
     } catch (error) {
-      if (error.name !== 'AbortError') {
+      if (error instanceof Error && error.name !== 'AbortError') {
         console.error("Chat error:", error);
         // Update assistant message with error
         setMessages(prev => prev.map(msg => 
@@ -180,6 +189,21 @@ export function useChat(): UseChatReturn {
     localStorage.removeItem("chat-messages");
   }, [isStreaming, stopStreaming]);
 
+  const saveCurrentChat = useCallback(async () => {
+    if (messages.length === 0) return;
+    
+    try {
+      const sessionId = generateId();
+      await saveChat.mutateAsync({
+        sessionId,
+        messages,
+      });
+      console.log('Chat saved with session ID:', sessionId);
+    } catch (error) {
+      console.error('Failed to save chat:', error);
+    }
+  }, [messages, saveChat]);
+
   return {
     messages,
     isStreaming,
@@ -187,5 +211,7 @@ export function useChat(): UseChatReturn {
     sendMessage,
     stopStreaming,
     resetChat,
+    saveCurrentChat,
+    isHealthy: healthQuery.data?.status === 'ok',
   };
 }
