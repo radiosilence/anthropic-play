@@ -71,6 +71,14 @@ export function useChat(): UseChatReturn {
         timestamp: Date.now(),
       };
 
+      // Prepare messages for API (before updating state)
+      const apiMessages = [...messages, userMessage]
+        .filter((msg) => msg.content && msg.content.trim().length > 0)
+        .map((msg) => ({
+          role: msg.role,
+          content: msg.content.trim(),
+        }));
+
       // Create assistant message placeholder
       const assistantMessageId = generateId();
       const assistantMessage: ChatMessage = {
@@ -90,11 +98,7 @@ export function useChat(): UseChatReturn {
       abortControllerRef.current = abortController;
 
       try {
-        // Prepare messages for API
-        const apiMessages = [...messages, userMessage].map((msg) => ({
-          role: msg.role,
-          content: msg.content,
-        }));
+        console.log("🚀 Sending chat request with messages:", apiMessages);
 
         const response = await fetch("/api/chat", {
           method: "POST",
@@ -105,6 +109,12 @@ export function useChat(): UseChatReturn {
           signal: abortController.signal,
         });
 
+        console.log(
+          "📡 Received response:",
+          response.status,
+          response.statusText,
+        );
+
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -114,22 +124,44 @@ export function useChat(): UseChatReturn {
         const decoder = new TextDecoder();
 
         let accumulatedContent = "";
+        console.log("🌊 Starting to read stream...");
 
         if (reader) {
           try {
             while (true) {
               const { done, value } = await reader.read();
-              if (done) break;
+              if (done) {
+                console.log("✅ Stream reading completed");
+                break;
+              }
 
               const chunk = decoder.decode(value);
+              console.log("📦 Received chunk:", chunk);
               const lines = chunk.split("\n");
 
               for (const line of lines) {
-                const { data, error } = StreamingResponseSchema.safeParse(line);
-                if (!data || error) continue;
+                if (!line.trim()) continue;
+                console.log("🔍 Parsing line:", line);
+
+                const { data, error } = StreamingResponseSchema.safeParse(
+                  JSON.parse(line),
+                );
+                if (!data || error) {
+                  console.log("❌ Failed to parse line:", error?.issues);
+                  continue;
+                }
+                console.log(
+                  "✅ Parsed data:",
+                  data.type,
+                  data.content?.slice(0, 50),
+                );
 
                 if (data.type === "delta") {
                   accumulatedContent += data.content;
+                  console.log(
+                    "📝 Accumulated content length:",
+                    accumulatedContent.length,
+                  );
                   // Update the assistant message
                   setMessages((prev) =>
                     prev.map((msg) =>
@@ -139,6 +171,7 @@ export function useChat(): UseChatReturn {
                     ),
                   );
                 } else if (data.type === "complete") {
+                  console.log("🏁 Received complete response");
                   // Update with final content
                   const textBlocks =
                     data.response?.content?.filter(
@@ -156,12 +189,15 @@ export function useChat(): UseChatReturn {
                     ),
                   );
                 } else if (data.type === "error") {
+                  console.error("💥 Received error from stream:", data.error);
                   throw new Error(data.error);
                 }
               }
             }
           } catch (error) {
+            console.error("🚨 Stream reading error:", error);
             if (error instanceof Error && error.name === "AbortError") {
+              console.log("🛑 User cancelled request");
               // User cancelled - remove the empty assistant message
               setMessages((prev) =>
                 prev.filter((msg) => msg.id !== assistantMessageId),
@@ -170,6 +206,7 @@ export function useChat(): UseChatReturn {
               throw error;
             }
           } finally {
+            console.log("🔒 Releasing reader lock");
             reader.releaseLock();
           }
         }
