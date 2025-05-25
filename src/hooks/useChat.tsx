@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { ChatMessage } from "../types/chat.schema";
 import { trpc } from "../utils/trpc";
 
@@ -15,6 +15,12 @@ export function useChat() {
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(
     null,
   );
+  const [channelId] = useState(() => {
+    const id = crypto.randomUUID();
+    console.log("🔑 Created channel ID:", id);
+    return id;
+  });
+  const [error, setError] = useState<string | null>(null);
 
   // tRPC queries and mutations
   const healthQuery = trpc.health.useQuery(undefined, {
@@ -50,83 +56,100 @@ export function useChat() {
 
   const [accumulatedContent, setAccumulatedContent] = useState<string>("");
   const sendMessages = trpc.sendMessages.useMutation();
-  trpc.onMessageChunk.useSubscription(undefined, {
-    onData: ([data]) => {
-      const assistantMessageId = streamingMessageId;
-      console.log(
-        "📡 Received chunk data:",
-        data.type,
-        data.content?.slice(0, 50),
-      );
-      console.log("🎯 Current streaming message ID:", assistantMessageId);
+  trpc.onMessageChunk.useSubscription(
+    { channelId },
+    {
+      enabled: isStreaming,
+      onError: (err) => {
+        console.error("❌ Subscription error:", err);
+        setError(err.message);
+        stopStreaming();
+      },
+      onData: ([data]) => {
+        const assistantMessageId = streamingMessageId;
+        console.log(
+          "📡 Received chunk data:",
+          data.type,
+          data.content?.slice(0, 50),
+        );
+        console.log("🎯 Current streaming message ID:", assistantMessageId);
 
-      switch (data.type) {
-        case "delta": {
-          console.log("⚡ Processing delta chunk...");
-          console.log(
-            "📝 Current accumulated content length:",
-            accumulatedContent.length,
-          );
-          console.log(
-            "➕ Adding content chunk:",
-            `${data.content?.slice(0, 30)}...`,
-          );
+        switch (data.type) {
+          case "delta": {
+            console.log("⚡ Processing delta chunk...");
+            console.log(
+              "📝 Current accumulated content length:",
+              accumulatedContent.length,
+            );
+            console.log(
+              "➕ Adding content chunk:",
+              `${data.content?.slice(0, 30)}...`,
+            );
 
-          const newAccumulated = `${accumulatedContent}${data.content}`;
-          setAccumulatedContent(newAccumulated);
-          console.log(
-            "📊 New accumulated content length:",
-            newAccumulated.length,
-          );
+            const newAccumulated = `${accumulatedContent}${data.content}`;
+            setAccumulatedContent(newAccumulated);
+            console.log(
+              "📊 New accumulated content length:",
+              newAccumulated.length,
+            );
 
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === assistantMessageId
-                ? { ...msg, content: newAccumulated }
-                : msg,
-            ),
-          );
-          console.log("🔄 Updated message content in state");
-          break;
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === assistantMessageId
+                  ? { ...msg, content: newAccumulated }
+                  : msg,
+              ),
+            );
+            console.log("🔄 Updated message content in state");
+            break;
+          }
+
+          case "complete": {
+            console.log("🏁 Stream completed!");
+            const textBlocks =
+              data.response?.content?.filter(
+                (block) => block.type === "text",
+              ) || [];
+            console.log(
+              "📄 Found",
+              textBlocks.length,
+              "text blocks in response",
+            );
+
+            const finalContent =
+              textBlocks.length > 0
+                ? textBlocks.map((block) => (block as any).text).join("")
+                : accumulatedContent;
+            console.log("✨ Final content length:", finalContent.length);
+
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === assistantMessageId
+                  ? { ...msg, content: finalContent }
+                  : msg,
+              ),
+            );
+            console.log(
+              "🎉 Stream processing complete, setting isStreaming to false",
+            );
+            stopStreaming();
+            break;
+          }
+          case "error":
+            console.error("💥 Received error from stream:", data.error);
+            setError(data.error || "Unknown streaming error");
+            stopStreaming();
+            break;
         }
-
-        case "complete": {
-          console.log("🏁 Stream completed!");
-          const textBlocks =
-            data.response?.content?.filter((block) => block.type === "text") ||
-            [];
-          console.log("📄 Found", textBlocks.length, "text blocks in response");
-
-          const finalContent =
-            textBlocks.length > 0
-              ? textBlocks.map((block) => (block as any).text).join("")
-              : accumulatedContent;
-          console.log("✨ Final content length:", finalContent.length);
-
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === assistantMessageId
-                ? { ...msg, content: finalContent }
-                : msg,
-            ),
-          );
-          console.log(
-            "🎉 Stream processing complete, setting isStreaming to false",
-          );
-          stopStreaming();
-          break;
-        }
-        case "error":
-          console.error("💥 Received error from stream:", data.error);
-          throw new Error(data.error);
-      }
+      },
     },
-  });
+  );
 
   const stopStreaming = useCallback(() => {
     console.log("🛑 Stopping stream...");
     setIsStreaming(false);
     setStreamingMessageId(null);
+    setAccumulatedContent("");
     console.log("✅ Stream stopped successfully");
   }, []);
 
@@ -187,13 +210,28 @@ export function useChat() {
       setAccumulatedContent("");
       console.log("🌊 Streaming started for message:", assistantMessageId);
 
-      console.log("🌐 Sending POST request to /trpc...");
-      const response = await sendMessages.mutateAsync({
-        messages: apiMessages,
-      });
-      console.log("📡 Received response from /trpc:", response);
+      try {
+        console.log(
+          "🌐 Sending POST request to /trpc with channel:",
+          channelId,
+        );
+        const response = await sendMessages.mutateAsync({
+          messages: apiMessages,
+          channelId,
+        });
+        console.log("📡 Received response from /trpc:", response);
+      } catch (err) {
+        console.error("❌ Failed to send messages:", err);
+        setError(err instanceof Error ? err.message : "Unknown error");
+        // Remove the assistant placeholder message
+        setMessages((prev) =>
+          prev.filter((msg) => msg.id !== assistantMessageId),
+        );
+        setIsStreaming(false);
+        setStreamingMessageId(null);
+      }
     },
-    [messages, isStreaming, sendMessages.mutateAsync],
+    [messages, isStreaming, sendMessages.mutateAsync, channelId],
   );
 
   const resetChat = useCallback(() => {
@@ -206,6 +244,7 @@ export function useChat() {
 
     console.log("🗑️ Clearing messages state");
     setMessages([]);
+    setError(null);
 
     console.log("🧹 Removing messages from localStorage");
     localStorage.removeItem("chat-messages");
@@ -232,5 +271,7 @@ export function useChat() {
     stopStreaming,
     resetChat,
     isHealthy: healthQuery.data?.status === "ok",
+    error,
+    channelId,
   };
 }

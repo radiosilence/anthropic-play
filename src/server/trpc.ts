@@ -7,9 +7,14 @@ import {
 import { Anthropic } from "@anthropic-ai/sdk";
 import { initTRPC } from "@trpc/server";
 import type { FetchCreateContextFnOptions } from "@trpc/server/adapters/fetch";
-import type { z } from "zod";
+import { z } from "zod";
+import {
+  getActiveRequests,
+  getCompletedRequests,
+  getRequestMetrics,
+} from "./middleware/logging";
 
-const IS_LOGGING = false;
+const IS_LOGGING = true;
 
 const log = (...args: unknown[]) => {
   IS_LOGGING && console.log(...args);
@@ -44,17 +49,43 @@ class IterableEventEmitter<
   }
 }
 
-export const ee = new IterableEventEmitter<{
-  chunk: [data: z.infer<typeof StreamingResponseSchema>];
-  dbg: [data: string];
-}>();
+// Map to store channel-specific event emitters
+const channelEmitters = new Map<
+  string,
+  IterableEventEmitter<{
+    chunk: [data: z.infer<typeof StreamingResponseSchema>];
+    error: [error: Error];
+  }>
+>();
+
+// Cleanup function to remove unused channels
+const cleanupChannel = (channelId: string) => {
+  log(`🧹 Cleaning up channel: ${channelId}`);
+  const emitter = channelEmitters.get(channelId);
+  if (emitter) {
+    emitter.removeAllListeners();
+    channelEmitters.delete(channelId);
+  }
+};
+
+// Get or create channel-specific emitter
+const getChannelEmitter = (channelId: string) => {
+  if (!channelEmitters.has(channelId)) {
+    log(`📺 Creating new channel emitter for: ${channelId}`);
+    channelEmitters.set(channelId, new IterableEventEmitter());
+  }
+  return channelEmitters.get(channelId)!;
+};
 
 log("📡 Event emitter initialized for streaming chunks");
 
-type Context = Awaited<ReturnType<typeof createContext>>;
+export type Context = Awaited<ReturnType<typeof createContext>>;
 
-// Initialize tRPC
+// Initialize tRPC with middleware
 const t = initTRPC.context<Context>().create();
+
+// Create procedures without middleware for now
+const publicProcedure = t.procedure;
 
 log("🔧 tRPC router initialized");
 
@@ -111,82 +142,158 @@ export function validateConversation(
 // Router
 export const appRouter = t.router({
   // Health check endpoint
-  health: t.procedure.query(() => {
+  health: publicProcedure.query(() => {
     log("💚 Health check endpoint hit");
     return {
       status: "ok",
       timestamp: new Date().toISOString(),
       version: "1.0.0",
+      activeChannels: channelEmitters.size,
     };
   }),
 
-  sendMessages: t.procedure.input(ChatRequestSchema).mutation(async (opts) => {
-    log("💬 New chat message request received");
-    log(`📥 Input messages count: ${opts.input.messages.length}`);
+  sendMessages: publicProcedure
+    .input(ChatRequestSchema)
+    .mutation(async (opts) => {
+      const channelId = opts.input.channelId || crypto.randomUUID();
+      log(`💬 New chat message request received on channel: ${channelId}`);
+      log(`📥 Input messages count: ${opts.input.messages.length}`);
 
-    const sanitizedMessages = sanitizeMessages(opts.input.messages);
-    log("🧹 Messages sanitized");
+      const channelEmitter = getChannelEmitter(channelId);
 
-    const validatedMessages = validateConversation(sanitizedMessages);
-    log("✅ Messages validated for conversation");
-
-    const stream = anthropic.messages.stream({
-      model: "claude-3-7-sonnet-20250219",
-      max_tokens: 1024,
-      messages: validatedMessages,
-    });
-    log("🌊 Started streaming from Anthropic API");
-
-    const enqueue = (data: z.infer<typeof StreamingResponseSchema>) => {
       try {
-        log(`📤 Emitting chunk: ${data.type}`);
-        ee.emit("chunk", data);
-      } catch (error) {
-        console.error("❌ Failed to validate streaming response:", error);
-      }
-    };
+        const sanitizedMessages = sanitizeMessages(opts.input.messages);
+        log("🧹 Messages sanitized");
 
-    log("🔄 Starting to process stream chunks");
-    for await (const chunk of stream) {
-      if (
-        chunk.type === "content_block_delta" &&
-        chunk.delta.type === "text_delta"
-      ) {
+        const validatedMessages = validateConversation(sanitizedMessages);
+        log("✅ Messages validated for conversation");
+
+        const stream = anthropic.messages.stream({
+          model: "claude-3-7-sonnet-20250219",
+          max_tokens: 1024,
+          messages: validatedMessages,
+        });
         log(
-          `📝 Processing text delta: "${chunk.delta.text.substring(0, 20)}..."`,
+          `🌊 Started streaming from Anthropic API for channel: ${channelId}`,
+        );
+
+        const enqueue = (data: z.infer<typeof StreamingResponseSchema>) => {
+          try {
+            log(`📤 Emitting chunk on channel ${channelId}: ${data.type}`);
+            channelEmitter.emit("chunk", data);
+          } catch (error) {
+            console.error("❌ Failed to validate streaming response:", error);
+            channelEmitter.emit("error", error as Error);
+          }
+        };
+
+        log("🔄 Starting to process stream chunks");
+        for await (const chunk of stream) {
+          if (
+            chunk.type === "content_block_delta" &&
+            chunk.delta.type === "text_delta"
+          ) {
+            log(
+              `📝 Processing text delta: "${chunk.delta.text.substring(0, 20)}..."`,
+            );
+            enqueue({
+              type: "delta",
+              content: chunk.delta.text,
+            });
+          }
+        }
+
+        // Get final message
+        log("🏁 Stream completed, getting final message");
+        const finalMessage = await stream.finalMessage();
+        log(
+          `✨ Final message received with ${finalMessage.content.length} content blocks`,
         );
         enqueue({
-          type: "delta",
-          content: chunk.delta.text,
+          type: "complete",
+          response: finalMessage,
         });
+
+        // Schedule cleanup after a delay
+        setTimeout(() => cleanupChannel(channelId), 60000); // 1 minute
+
+        log(`🎉 Message processing completed for channel: ${channelId}`);
+        return { channelId };
+      } catch (error) {
+        log(`❌ Error processing messages for channel ${channelId}:`, error);
+        channelEmitter.emit("error", error as Error);
+        cleanupChannel(channelId);
+        throw error;
       }
-    }
+    }),
 
-    // Get final message
-    log("🏁 Stream completed, getting final message");
-    const finalMessage = await stream.finalMessage();
-    log(
-      `✨ Final message received with ${finalMessage.content.length} content blocks`,
-    );
-    enqueue({
-      type: "complete",
-      response: finalMessage,
-    });
-    log("🎉 Message processing completed");
+  onMessageChunk: publicProcedure
+    .input(z.object({ channelId: z.string() }))
+    .subscription(async function* (opts) {
+      const { channelId } = opts.input;
+      log(
+        `🔔 New subscription to message chunks created for channel: ${channelId}`,
+      );
+
+      const channelEmitter = getChannelEmitter(channelId);
+      const iterable = channelEmitter.toIterable("chunk", {
+        signal: opts.signal,
+      });
+
+      // Also listen for errors
+      const errorIterable = channelEmitter.toIterable("error", {
+        signal: opts.signal,
+      });
+
+      // Set up error handling
+      const errorPromise = (async () => {
+        for await (const [error] of errorIterable) {
+          throw error;
+        }
+      })();
+
+      try {
+        log(`👂 Listening for chunk events on channel: ${channelId}`);
+        for await (const chunk of iterable) {
+          log(
+            `📺 Yielding chunk to subscriber on channel ${channelId}: ${chunk[0].type}`,
+          );
+          yield chunk;
+        }
+      } catch (error) {
+        log(`❌ Error in subscription for channel ${channelId}:`, error);
+        throw error;
+      } finally {
+        log(`👋 Subscription ended for channel: ${channelId}`);
+        // Don't cleanup immediately - let ongoing streams finish
+      }
+    }),
+
+  // Metrics endpoint
+  metrics: publicProcedure.query(() => {
+    log("📊 Fetching request metrics");
+    return {
+      ...getRequestMetrics(),
+      activeChannels: channelEmitters.size,
+      systemInfo: {
+        memory: process.memoryUsage(),
+        uptime: process.uptime(),
+        nodeVersion: process.version,
+      },
+    };
   }),
 
-  onMessageChunk: t.procedure.subscription(async function* (opts) {
-    log("🔔 New subscription to message chunks created");
-    const iterable = ee.toIterable("chunk", {
-      signal: opts.signal,
-    });
-    log("👂 Listening for chunk events");
-    for await (const chunk of iterable) {
-      log(`📺 Yielding chunk to subscriber: ${chunk[0].type}`);
-      yield chunk;
-    }
-    log("👋 Subscription ended");
+  // Get active requests
+  activeRequests: publicProcedure.query(() => {
+    return getActiveRequests();
   }),
+
+  // Get recent completed requests
+  recentRequests: publicProcedure
+    .input(z.object({ limit: z.number().min(1).max(1000).default(100) }))
+    .query(({ input }) => {
+      return getCompletedRequests(input.limit);
+    }),
 });
 
 log("🛠️ App router fully configured and ready");

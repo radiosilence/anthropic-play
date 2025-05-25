@@ -22,6 +22,7 @@ export const ChatRequestSchema = z.object({
       content: z.string(),
     }),
   ),
+  channelId: z.string().optional(),
 });
 
 // Export TypeScript types
