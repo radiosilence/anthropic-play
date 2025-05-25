@@ -7,8 +7,7 @@ import {
 import { Anthropic } from "@anthropic-ai/sdk";
 import { initTRPC } from "@trpc/server";
 import type { FetchCreateContextFnOptions } from "@trpc/server/adapters/fetch";
-import { z } from "zod";
-import { sanitizeMessages, validateConversation } from "./chat";
+import type { z } from "zod";
 
 const IS_LOGGING = false;
 
@@ -59,20 +58,55 @@ const t = initTRPC.context<Context>().create();
 
 log("🔧 tRPC router initialized");
 
-// Zod schemas
-export const ChatMessageSchema = z.object({
-  id: z.string(),
-  role: z.enum(["user", "assistant"]),
-  content: z.string(),
-  timestamp: z.number().optional(),
-});
+// Message sanitization function
+export function sanitizeMessages(
+  messages: { role: string; content: string }[],
+) {
+  return messages
+    .filter((msg) => {
+      // Remove messages with empty or whitespace-only content
+      const content = msg.content?.trim();
+      return content && content.length > 0;
+    })
+    .map((msg) => ({
+      role: msg.role as "user" | "assistant",
+      content: msg.content.trim(),
+    }))
+    .filter((msg, index, arr) => {
+      // Remove consecutive messages from the same role (keep the last one)
+      if (index === arr.length - 1) return true;
+      return msg.role !== arr[index + 1].role;
+    });
+}
 
-export const SavedChatSchema = z.object({
-  messages: z.array(ChatMessageSchema),
-  lastUpdated: z.string(),
-});
+// Additional validation for conversation flow
+export function validateConversation(
+  messages: { role: "user" | "assistant"; content: string }[],
+) {
+  if (messages.length === 0) {
+    throw new Error("No valid messages found");
+  }
 
-log("📝 Zod schemas defined for chat messages");
+  // Check that the last message is from the user
+  const lastMessage = messages[messages.length - 1];
+  if (lastMessage.role !== "user") {
+    throw new Error("Conversation must end with a user message");
+  }
+
+  // Check for reasonable message lengths
+  for (const msg of messages) {
+    if (msg.content.length > 10000) {
+      throw new Error("Message too long (max 10,000 characters)");
+    }
+  }
+
+  // Check for reasonable conversation length
+  if (messages.length > 100) {
+    throw new Error("Conversation too long (max 100 messages)");
+  }
+
+  return messages;
+}
 
 // Router
 export const appRouter = t.router({

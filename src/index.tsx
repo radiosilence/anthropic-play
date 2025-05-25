@@ -1,6 +1,5 @@
 import { ENV } from "@/env";
 import index from "@/index.html";
-import { handleChatRequest } from "@/server/chat";
 import { appRouter, createContext } from "@/server/trpc";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { serve } from "bun";
@@ -16,11 +15,6 @@ const server = serve({
         router: appRouter,
         createContext,
       });
-    },
-
-    // Streaming chat endpoint
-    "/api/chat": {
-      POST: handleChatRequest,
     },
 
     // Serve index.html for all unmatched routes.
