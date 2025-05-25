@@ -82,8 +82,65 @@ export function Chat() {
 				body: JSON.stringify(payload),
 			});
 
-			const data = await res.json();
-			setMessages((messages) => [...messages, data.response as Message]);
+			// Handle streaming response
+			const reader = res.body?.getReader();
+			const decoder = new TextDecoder();
+			
+			// Create a placeholder message for the assistant
+			const assistantMessageId = generateId();
+			let accumulatedContent = "";
+			
+			setMessages(prev => [...prev, {
+				id: assistantMessageId,
+				role: "assistant",
+				content: "",
+			} as unknown as Message]);
+
+			if (reader) {
+				try {
+					while (true) {
+						const { done, value } = await reader.read();
+						if (done) break;
+						
+						const chunk = decoder.decode(value);
+						const lines = chunk.split('\n');
+						
+						for (const line of lines) {
+							if (line.startsWith('data: ')) {
+								const data = line.slice(6);
+								if (data === '[DONE]') continue;
+								
+								try {
+									const parsed = JSON.parse(data);
+									
+									if (parsed.type === 'delta') {
+										accumulatedContent += parsed.content;
+										// Update the message with accumulated content
+										setMessages(prev => prev.map(msg => 
+											msg.id === assistantMessageId 
+												? { ...msg, content: accumulatedContent }
+												: msg
+										));
+									} else if (parsed.type === 'complete') {
+										// Replace with the final message from Claude
+										setMessages(prev => prev.map(msg => 
+											msg.id === assistantMessageId 
+												? parsed.response
+												: msg
+										));
+									} else if (parsed.type === 'error') {
+										throw new Error(parsed.error);
+									}
+								} catch (e) {
+									console.error('Error parsing SSE data:', e);
+								}
+							}
+						}
+					}
+				} finally {
+					reader.releaseLock();
+				}
+			}
 			scrollToBottom();
 		} catch (error) {
 			console.error("API Error:", error);
