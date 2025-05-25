@@ -25,6 +25,7 @@ export function Chat() {
   }, [scrollToBottom]);
 
   // Scroll when messages change or streaming
+  // biome-ignore lint/correctness/useExhaustiveDependencies: It needs to react to these
   useEffect(() => {
     scrollToBottom();
   }, [messages, streamingMessageId, scrollToBottom]);
