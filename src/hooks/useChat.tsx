@@ -15,7 +15,6 @@ export function useChat() {
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(
     null,
   );
-  const abortControllerRef = useRef<AbortController | null>(null);
 
   // tRPC queries and mutations
   const healthQuery = trpc.health.useQuery(undefined, {
@@ -50,7 +49,7 @@ export function useChat() {
   }, [messages]);
 
   const [accumulatedContent, setAccumulatedContent] = useState<string>("");
-
+  const sendMessages = trpc.sendMessages.useMutation();
   trpc.onMessageChunk.useSubscription(undefined, {
     onData: ([data]) => {
       const assistantMessageId = streamingMessageId;
@@ -114,7 +113,7 @@ export function useChat() {
           console.log(
             "🎉 Stream processing complete, setting isStreaming to false",
           );
-          setIsStreaming(false);
+          stopStreaming();
           break;
         }
         case "error":
@@ -126,13 +125,6 @@ export function useChat() {
 
   const stopStreaming = useCallback(() => {
     console.log("🛑 Stopping stream...");
-    if (abortControllerRef.current) {
-      console.log("🚫 Aborting current request");
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-    } else {
-      console.log("⚠️ No active abort controller to stop");
-    }
     setIsStreaming(false);
     setStreamingMessageId(null);
     console.log("✅ Stream stopped successfully");
@@ -195,21 +187,13 @@ export function useChat() {
       setAccumulatedContent("");
       console.log("🌊 Streaming started for message:", assistantMessageId);
 
-      console.log("🌐 Sending POST request to /api/chat...");
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ messages: apiMessages }),
+      console.log("🌐 Sending POST request to /trpc...");
+      const response = await sendMessages.mutateAsync({
+        messages: apiMessages,
       });
-      console.log(
-        "📡 Received response from /api/chat:",
-        response.status,
-        response.statusText,
-      );
+      console.log("📡 Received response from /trpc:", response);
     },
-    [messages, isStreaming],
+    [messages, isStreaming, sendMessages.mutateAsync],
   );
 
   const resetChat = useCallback(() => {
