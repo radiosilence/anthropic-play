@@ -1,25 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  type ChatMessage,
-  StreamingResponseSchema,
-} from "../types/chat.schema";
+import type { ChatMessage } from "../types/chat.schema";
 import { trpc } from "../utils/trpc";
 
-interface UseChatReturn {
-  messages: ChatMessage[];
-  isStreaming: boolean;
-  streamingMessageId: string | null;
-  sendMessage: (content: string) => Promise<void>;
-  stopStreaming: () => void;
-  resetChat: () => void;
-  saveCurrentChat: () => Promise<void>;
-  isHealthy: boolean;
-}
-
 // Simple ID generator
-const generateId = () => Date.now().toString(36) + Math.random().toString(36);
+const generateId = () => {
+  const id = Date.now().toString(36) + Math.random().toString(36);
+  console.log("🆔 Generated new ID:", id);
+  return id;
+};
 
-export function useChat(): UseChatReturn {
+export function useChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(
@@ -31,38 +21,141 @@ export function useChat(): UseChatReturn {
   const healthQuery = trpc.health.useQuery(undefined, {
     refetchInterval: 30000, // Check health every 30 seconds
   });
-  const saveChat = trpc.saveChat.useMutation();
 
   // Load messages from localStorage on mount
   useEffect(() => {
+    console.log("🚀 Loading messages from localStorage...");
     const saved = localStorage.getItem("chat-messages");
     if (saved) {
       try {
-        setMessages(JSON.parse(saved));
+        const parsedMessages = JSON.parse(saved);
+        console.log(
+          "📦 Successfully loaded",
+          parsedMessages.length,
+          "messages from localStorage",
+        );
+        setMessages(parsedMessages);
       } catch (e) {
-        console.error("Failed to load messages from localStorage:", e);
+        console.error("❌ Failed to load messages from localStorage:", e);
       }
+    } else {
+      console.log("📭 No saved messages found in localStorage");
     }
   }, []);
 
   // Save messages to localStorage whenever they change
   useEffect(() => {
+    console.log("💾 Saving", messages.length, "messages to localStorage");
     localStorage.setItem("chat-messages", JSON.stringify(messages));
   }, [messages]);
 
+  const [accumulatedContent, setAccumulatedContent] = useState<string>("");
+
+  trpc.onMessageChunk.useSubscription(undefined, {
+    onData: ([data]) => {
+      const assistantMessageId = streamingMessageId;
+      console.log(
+        "📡 Received chunk data:",
+        data.type,
+        data.content?.slice(0, 50),
+      );
+      console.log("🎯 Current streaming message ID:", assistantMessageId);
+
+      switch (data.type) {
+        case "delta": {
+          console.log("⚡ Processing delta chunk...");
+          console.log(
+            "📝 Current accumulated content length:",
+            accumulatedContent.length,
+          );
+          console.log(
+            "➕ Adding content chunk:",
+            `${data.content?.slice(0, 30)}...`,
+          );
+
+          const newAccumulated = `${accumulatedContent}${data.content}`;
+          setAccumulatedContent(newAccumulated);
+          console.log(
+            "📊 New accumulated content length:",
+            newAccumulated.length,
+          );
+
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMessageId
+                ? { ...msg, content: newAccumulated }
+                : msg,
+            ),
+          );
+          console.log("🔄 Updated message content in state");
+          break;
+        }
+
+        case "complete": {
+          console.log("🏁 Stream completed!");
+          const textBlocks =
+            data.response?.content?.filter((block) => block.type === "text") ||
+            [];
+          console.log("📄 Found", textBlocks.length, "text blocks in response");
+
+          const finalContent =
+            textBlocks.length > 0
+              ? textBlocks.map((block) => (block as any).text).join("")
+              : accumulatedContent;
+          console.log("✨ Final content length:", finalContent.length);
+
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMessageId
+                ? { ...msg, content: finalContent }
+                : msg,
+            ),
+          );
+          console.log(
+            "🎉 Stream processing complete, setting isStreaming to false",
+          );
+          setIsStreaming(false);
+          break;
+        }
+        case "error":
+          console.error("💥 Received error from stream:", data.error);
+          throw new Error(data.error);
+      }
+    },
+  });
+
   const stopStreaming = useCallback(() => {
+    console.log("🛑 Stopping stream...");
     if (abortControllerRef.current) {
+      console.log("🚫 Aborting current request");
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
+    } else {
+      console.log("⚠️ No active abort controller to stop");
     }
     setIsStreaming(false);
     setStreamingMessageId(null);
+    console.log("✅ Stream stopped successfully");
   }, []);
 
   const sendMessage = useCallback(
     async (content: string) => {
-      if (!content.trim() || isStreaming) return;
+      console.log(
+        "💬 Attempting to send message:",
+        `${content.slice(0, 50)}...`,
+      );
 
+      if (!content.trim()) {
+        console.warn("⚠️ Message content is empty, aborting send");
+        return;
+      }
+
+      if (isStreaming) {
+        console.warn("⚠️ Already streaming, aborting new message send");
+        return;
+      }
+
+      console.log("👤 Creating user message...");
       // Create user message
       const userMessage: ChatMessage = {
         id: generateId(),
@@ -70,6 +163,7 @@ export function useChat(): UseChatReturn {
         content: content.trim(),
         timestamp: Date.now(),
       };
+      console.log("📝 User message created:", userMessage.id);
 
       // Prepare messages for API (before updating state)
       const apiMessages = [...messages, userMessage]
@@ -78,6 +172,7 @@ export function useChat(): UseChatReturn {
           role: msg.role,
           content: msg.content.trim(),
         }));
+      console.log("📤 Prepared", apiMessages.length, "messages for API");
 
       // Create assistant message placeholder
       const assistantMessageId = generateId();
@@ -87,172 +182,63 @@ export function useChat(): UseChatReturn {
         content: "",
         timestamp: Date.now(),
       };
+      console.log(
+        "🤖 Assistant message placeholder created:",
+        assistantMessageId,
+      );
 
       // Update messages
+      console.log("🔄 Updating messages state...");
       setMessages((prev) => [...prev, userMessage, assistantMessage]);
       setIsStreaming(true);
       setStreamingMessageId(assistantMessageId);
+      setAccumulatedContent("");
+      console.log("🌊 Streaming started for message:", assistantMessageId);
 
-      // Create abort controller for this request
-      const abortController = new AbortController();
-      abortControllerRef.current = abortController;
-
-      try {
-        console.log("🚀 Sending chat request with messages:", apiMessages);
-
-        const response = await fetch("/api/chat", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ messages: apiMessages }),
-          signal: abortController.signal,
-        });
-
-        console.log(
-          "📡 Received response:",
-          response.status,
-          response.statusText,
-        );
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        // Handle streaming response
-        const reader = response.body?.getReader();
-        const decoder = new TextDecoder();
-
-        let accumulatedContent = "";
-        console.log("🌊 Starting to read stream...");
-
-        if (reader) {
-          try {
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) {
-                console.log("✅ Stream reading completed");
-                break;
-              }
-
-              const chunk = decoder.decode(value);
-              console.log("📦 Received chunk:", chunk);
-              const lines = chunk.split("\n");
-
-              for (const line of lines) {
-                if (!line.trim()) continue;
-                console.log("🔍 Parsing line:", line);
-
-                const { data, error } = StreamingResponseSchema.safeParse(
-                  JSON.parse(line),
-                );
-                if (!data || error) {
-                  console.log("❌ Failed to parse line:", error?.issues);
-                  continue;
-                }
-                console.log(
-                  "✅ Parsed data:",
-                  data.type,
-                  data.content?.slice(0, 50),
-                );
-
-                if (data.type === "delta") {
-                  accumulatedContent += data.content;
-                  console.log(
-                    "📝 Accumulated content length:",
-                    accumulatedContent.length,
-                  );
-                  // Update the assistant message
-                  setMessages((prev) =>
-                    prev.map((msg) =>
-                      msg.id === assistantMessageId
-                        ? { ...msg, content: accumulatedContent }
-                        : msg,
-                    ),
-                  );
-                } else if (data.type === "complete") {
-                  console.log("🏁 Received complete response");
-                  // Update with final content
-                  const textBlocks =
-                    data.response?.content?.filter(
-                      (block) => block.type === "text",
-                    ) || [];
-                  const finalContent =
-                    textBlocks.length > 0
-                      ? textBlocks.map((block) => (block as any).text).join("")
-                      : accumulatedContent;
-                  setMessages((prev) =>
-                    prev.map((msg) =>
-                      msg.id === assistantMessageId
-                        ? { ...msg, content: finalContent }
-                        : msg,
-                    ),
-                  );
-                } else if (data.type === "error") {
-                  console.error("💥 Received error from stream:", data.error);
-                  throw new Error(data.error);
-                }
-              }
-            }
-          } catch (error) {
-            console.error("🚨 Stream reading error:", error);
-            if (error instanceof Error && error.name === "AbortError") {
-              console.log("🛑 User cancelled request");
-              // User cancelled - remove the empty assistant message
-              setMessages((prev) =>
-                prev.filter((msg) => msg.id !== assistantMessageId),
-              );
-            } else {
-              throw error;
-            }
-          } finally {
-            console.log("🔒 Releasing reader lock");
-            reader.releaseLock();
-          }
-        }
-      } catch (error) {
-        if (error instanceof Error && error.name !== "AbortError") {
-          console.error("Chat error:", error);
-          // Update assistant message with error
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === assistantMessageId
-                ? { ...msg, content: `Error: ${error.message}` }
-                : msg,
-            ),
-          );
-        }
-      } finally {
-        abortControllerRef.current = null;
-        setIsStreaming(false);
-        setStreamingMessageId(null);
-      }
+      console.log("🌐 Sending POST request to /api/chat...");
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ messages: apiMessages }),
+      });
+      console.log(
+        "📡 Received response from /api/chat:",
+        response.status,
+        response.statusText,
+      );
     },
     [messages, isStreaming],
   );
 
   const resetChat = useCallback(() => {
+    console.log("🔄 Resetting chat...");
+
     if (isStreaming) {
+      console.log("🛑 Stopping active stream before reset");
       stopStreaming();
     }
+
+    console.log("🗑️ Clearing messages state");
     setMessages([]);
+
+    console.log("🧹 Removing messages from localStorage");
     localStorage.removeItem("chat-messages");
+
+    console.log("✨ Chat reset complete");
   }, [isStreaming, stopStreaming]);
 
-  const saveCurrentChat = useCallback(async () => {
-    if (messages.length === 0) return;
-
-    try {
-      const sessionId = generateId();
-      await saveChat.mutateAsync({
-        sessionId,
-        messages,
-      });
-      console.log("Chat saved with session ID:", sessionId);
-    } catch (error) {
-      console.error("Failed to save chat:", error);
+  // Log health status changes
+  useEffect(() => {
+    const isHealthy = healthQuery.data?.status === "ok";
+    if (healthQuery.data) {
+      console.log(
+        isHealthy ? "💚 Health check: OK" : "❤️ Health check: NOT OK",
+        healthQuery.data,
+      );
     }
-  }, [messages, saveChat]);
+  }, [healthQuery.data]);
 
   return {
     messages,
@@ -261,7 +247,6 @@ export function useChat(): UseChatReturn {
     sendMessage,
     stopStreaming,
     resetChat,
-    saveCurrentChat,
     isHealthy: healthQuery.data?.status === "ok",
   };
 }
