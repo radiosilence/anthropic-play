@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChatMessage } from "../types/chat";
 import { trpc } from "../utils/trpc";
 
@@ -19,7 +19,9 @@ const generateId = () => Date.now().toString(36) + Math.random().toString(36);
 export function useChat(): UseChatReturn {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
-  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
+  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(
+    null,
+  );
   const abortControllerRef = useRef<AbortController | null>(null);
 
   // tRPC queries and mutations
@@ -54,132 +56,146 @@ export function useChat(): UseChatReturn {
     setStreamingMessageId(null);
   }, []);
 
-  const sendMessage = useCallback(async (content: string) => {
-    if (!content.trim() || isStreaming) return;
+  const sendMessage = useCallback(
+    async (content: string) => {
+      if (!content.trim() || isStreaming) return;
 
-    // Create user message
-    const userMessage: ChatMessage = {
-      id: generateId(),
-      role: "user",
-      content: content.trim(),
-      timestamp: Date.now(),
-    };
+      // Create user message
+      const userMessage: ChatMessage = {
+        id: generateId(),
+        role: "user",
+        content: content.trim(),
+        timestamp: Date.now(),
+      };
 
-    // Create assistant message placeholder
-    const assistantMessageId = generateId();
-    const assistantMessage: ChatMessage = {
-      id: assistantMessageId,
-      role: "assistant",
-      content: "",
-      timestamp: Date.now(),
-    };
+      // Create assistant message placeholder
+      const assistantMessageId = generateId();
+      const assistantMessage: ChatMessage = {
+        id: assistantMessageId,
+        role: "assistant",
+        content: "",
+        timestamp: Date.now(),
+      };
 
-    // Update messages
-    setMessages(prev => [...prev, userMessage, assistantMessage]);
-    setIsStreaming(true);
-    setStreamingMessageId(assistantMessageId);
+      // Update messages
+      setMessages((prev) => [...prev, userMessage, assistantMessage]);
+      setIsStreaming(true);
+      setStreamingMessageId(assistantMessageId);
 
-    // Create abort controller for this request
-    const abortController = new AbortController();
-    abortControllerRef.current = abortController;
+      // Create abort controller for this request
+      const abortController = new AbortController();
+      abortControllerRef.current = abortController;
 
-    try {
-      // Prepare messages for API
-      const apiMessages = [...messages, userMessage].map(msg => ({
-        role: msg.role,
-        content: msg.content,
-      }));
+      try {
+        // Prepare messages for API
+        const apiMessages = [...messages, userMessage].map((msg) => ({
+          role: msg.role,
+          content: msg.content,
+        }));
 
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ messages: apiMessages }),
-        signal: abortController.signal,
-      });
+        const response = await fetch("/api/chat", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ messages: apiMessages }),
+          signal: abortController.signal,
+        });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
 
-      // Handle streaming response
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-      
-      let accumulatedContent = "";
+        // Handle streaming response
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder();
 
-      if (reader) {
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            
-            const chunk = decoder.decode(value);
-            const lines = chunk.split('\n');
-            
-            for (const line of lines) {
-              if (line.startsWith('data: ')) {
-                const data = line.slice(6);
-                if (data === '[DONE]') continue;
-                
-                try {
-                  const parsed = JSON.parse(data);
-                  
-                  if (parsed.type === 'delta') {
-                    accumulatedContent += parsed.content;
-                    // Update the assistant message
-                    setMessages(prev => prev.map(msg => 
-                      msg.id === assistantMessageId 
-                        ? { ...msg, content: accumulatedContent }
-                        : msg
-                    ));
-                  } else if (parsed.type === 'complete') {
-                    // Update with final content
-                    const finalContent = parsed.response.content?.[0]?.text || parsed.response.content || accumulatedContent;
-                    setMessages(prev => prev.map(msg => 
-                      msg.id === assistantMessageId 
-                        ? { ...msg, content: finalContent }
-                        : msg
-                    ));
-                  } else if (parsed.type === 'error') {
-                    throw new Error(parsed.error);
-                  }
-                } catch (e) {
-                  if (e instanceof Error && e.name !== 'AbortError') {
-                    console.error('Error parsing SSE data:', e);
+        let accumulatedContent = "";
+
+        if (reader) {
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+
+              const chunk = decoder.decode(value);
+              const lines = chunk.split("\n");
+
+              for (const line of lines) {
+                if (line.startsWith("data: ")) {
+                  const data = line.slice(6);
+                  if (data === "[DONE]") continue;
+
+                  try {
+                    const parsed = JSON.parse(data);
+
+                    if (parsed.type === "delta") {
+                      accumulatedContent += parsed.content;
+                      // Update the assistant message
+                      setMessages((prev) =>
+                        prev.map((msg) =>
+                          msg.id === assistantMessageId
+                            ? { ...msg, content: accumulatedContent }
+                            : msg,
+                        ),
+                      );
+                    } else if (parsed.type === "complete") {
+                      // Update with final content
+                      const finalContent =
+                        parsed.response.content?.[0]?.text ||
+                        parsed.response.content ||
+                        accumulatedContent;
+                      setMessages((prev) =>
+                        prev.map((msg) =>
+                          msg.id === assistantMessageId
+                            ? { ...msg, content: finalContent }
+                            : msg,
+                        ),
+                      );
+                    } else if (parsed.type === "error") {
+                      throw new Error(parsed.error);
+                    }
+                  } catch (e) {
+                    if (e instanceof Error && e.name !== "AbortError") {
+                      console.error("Error parsing SSE data:", e);
+                    }
                   }
                 }
               }
             }
+          } catch (error) {
+            if (error instanceof Error && error.name === "AbortError") {
+              // User cancelled - remove the empty assistant message
+              setMessages((prev) =>
+                prev.filter((msg) => msg.id !== assistantMessageId),
+              );
+            } else {
+              throw error;
+            }
+          } finally {
+            reader.releaseLock();
           }
-        } catch (error) {
-          if (error instanceof Error && error.name === 'AbortError') {
-            // User cancelled - remove the empty assistant message
-            setMessages(prev => prev.filter(msg => msg.id !== assistantMessageId));
-          } else {
-            throw error;
-          }
-        } finally {
-          reader.releaseLock();
         }
+      } catch (error) {
+        if (error instanceof Error && error.name !== "AbortError") {
+          console.error("Chat error:", error);
+          // Update assistant message with error
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMessageId
+                ? { ...msg, content: `Error: ${error.message}` }
+                : msg,
+            ),
+          );
+        }
+      } finally {
+        abortControllerRef.current = null;
+        setIsStreaming(false);
+        setStreamingMessageId(null);
       }
-    } catch (error) {
-      if (error instanceof Error && error.name !== 'AbortError') {
-        console.error("Chat error:", error);
-        // Update assistant message with error
-        setMessages(prev => prev.map(msg => 
-          msg.id === assistantMessageId 
-            ? { ...msg, content: `Error: ${error.message}` }
-            : msg
-        ));
-      }
-    } finally {
-      abortControllerRef.current = null;
-      setIsStreaming(false);
-      setStreamingMessageId(null);
-    }
-  }, [messages, isStreaming]);
+    },
+    [messages, isStreaming],
+  );
 
   const resetChat = useCallback(() => {
     if (isStreaming) {
@@ -191,16 +207,16 @@ export function useChat(): UseChatReturn {
 
   const saveCurrentChat = useCallback(async () => {
     if (messages.length === 0) return;
-    
+
     try {
       const sessionId = generateId();
       await saveChat.mutateAsync({
         sessionId,
         messages,
       });
-      console.log('Chat saved with session ID:', sessionId);
+      console.log("Chat saved with session ID:", sessionId);
     } catch (error) {
-      console.error('Failed to save chat:', error);
+      console.error("Failed to save chat:", error);
     }
   }, [messages, saveChat]);
 
@@ -212,6 +228,6 @@ export function useChat(): UseChatReturn {
     stopStreaming,
     resetChat,
     saveCurrentChat,
-    isHealthy: healthQuery.data?.status === 'ok',
+    isHealthy: healthQuery.data?.status === "ok",
   };
 }
